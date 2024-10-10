@@ -1,7 +1,10 @@
-use image::{GrayImage, ImageBuffer};
+use image::imageops;
+use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::filter::gaussian_blur_f32;
 use std::fs;
 use std::path::Path;
+
+const EDGE_THRESHOLD: u32 = 19;
 
 pub struct ImagePyramid {
     pub levels: Vec<GrayImage>,
@@ -16,26 +19,29 @@ impl ImagePyramid {
             scale_factors: Vec::with_capacity(n_levels),
             sigma_factors: Vec::with_capacity(n_levels),
         };
-
         pyramid.compute_pyramid(base_image, n_levels, scale_factor);
         pyramid
     }
 
     fn compute_pyramid(&mut self, base_image: &GrayImage, n_levels: usize, scale_factor: f32) {
-        self.levels.push(base_image.clone());
+        // Add padding to the base image once
+        let padded_base = add_padding(base_image, EDGE_THRESHOLD);
+        self.levels.push(padded_base.clone());
         self.scale_factors.push(1.0);
         self.sigma_factors.push(1.0);
 
+        // Build the pyramid without adding padding at each level
         for i in 1..n_levels {
             let scale = scale_factor.powi(i as i32);
             self.scale_factors.push(scale);
-
             let sigma = scale_factor.sqrt();
             self.sigma_factors.push(sigma);
 
-            let previous = &self.levels[i - 1];
-            let scaled = self.resize_image(previous, scale);
+            // Use the unpadded base image for resizing
+            let scaled = self.resize_image(&padded_base, scale);
             let blurred = gaussian_blur_f32(&scaled, sigma);
+
+            // No padding is added here, only resizing and blurring
             self.levels.push(blurred);
         }
     }
@@ -67,26 +73,40 @@ impl ImagePyramid {
     pub fn num_levels(&self) -> usize {
         self.levels.len()
     }
+
     pub fn save_levels(&self, output_dir: &str) -> Result<(), image::ImageError> {
         fs::create_dir_all(output_dir)?;
-
         for (i, level) in self.levels.iter().enumerate() {
-            let filename = format!("new_level_{}.png", i);
+            let filename = format!("level_{}.png", i);
             let path = Path::new(output_dir).join(filename);
             level.save(path)?;
         }
-
         Ok(())
     }
 }
 
-// Example usage
+fn add_padding(image: &GrayImage, edge_threshold: u32) -> GrayImage {
+    let (width, height) = image.dimensions();
+    let new_width = width + 2 * edge_threshold;
+    let new_height = height + 2 * edge_threshold;
+
+    ImageBuffer::from_fn(new_width, new_height, |x, y| {
+        if x < edge_threshold
+            || y < edge_threshold
+            || x >= width + edge_threshold
+            || y >= height + edge_threshold
+        {
+            Luma([0]) // Padding pixel
+        } else {
+            *image.get_pixel(x - edge_threshold, y - edge_threshold)
+        }
+    })
+}
+
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let base_image = image::open("./test/image_1.jpeg").unwrap().to_luma8();
+    let base_image = image::open("./test/image_1.jpeg")?.to_luma8();
     let pyramid = ImagePyramid::new(&base_image, 8, 1.2);
-
     pyramid.save_levels("./output/")?;
-
-    println!("Pyramid levels saved successfully!");
+    println!("Pyramid levels (both padded and unpadded) saved successfully!");
     Ok(())
 }

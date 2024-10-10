@@ -27,7 +27,6 @@ pub fn compute_keypoints_oct_tree(
         let (width, height) = image.dimensions();
         let mut keypoints = Vec::new();
 
-        let scale_factor = pyramid.scale_factors[level];
         let min_border_x = EDGE_THRESHOLD - 3;
         let max_border_x = width as i32 - EDGE_THRESHOLD + 3;
         let min_border_y = min_border_x;
@@ -39,8 +38,9 @@ pub fn compute_keypoints_oct_tree(
         let n_cols = width_range / w;
         let n_rows = height_range / w;
 
-        let w_cell = ((width_range as f32 / n_cols as f32).ceil() / scale_factor) as i32;
-        let h_cell = ((height_range as f32 / n_rows as f32).ceil() / scale_factor) as i32;
+        let w_cell = ((width_range as f32 / n_cols as f32).ceil()) as i32;
+        let h_cell = ((height_range as f32 / n_rows as f32).ceil()) as i32;
+
         for i in 0..n_rows {
             let ini_y = min_border_y + i * h_cell;
             let max_y = ini_y + h_cell + 6;
@@ -68,10 +68,8 @@ pub fn compute_keypoints_oct_tree(
                 );
 
                 for mut kp in cell_keypoints {
-                    kp.pt.0 = (kp.pt.0 + (j as f32 * w_cell as f32) + EDGE_THRESHOLD as f32)
-                        * scale_factor;
-                    kp.pt.1 = (kp.pt.1 + (i as f32 * h_cell as f32) + EDGE_THRESHOLD as f32)
-                        * scale_factor;
+                    kp.pt.0 += j as f32 * w_cell as f32;
+                    kp.pt.1 += i as f32 * h_cell as f32;
                     kp.octave = level as i32;
                     keypoints.push(kp);
                 }
@@ -137,13 +135,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (level, keypoints) in all_keypoints.iter().enumerate() {
         let color = colors[level % colors.len()];
+        let scale_factor = pyramid.scale_factors[level];
         for kp in keypoints {
-            // so we don't need to apply the scale factor here
-            let x = kp.pt.0.round() as i32;
-            let y = kp.pt.1.round() as i32;
+            let x = kp.pt.0.round() as i32 * scale_factor as i32;
+            let y = kp.pt.1.round() as i32 * scale_factor as i32;
 
-            // Draw a cross with size proportional to the pyramid level
-            let size = (3.0 * pyramid.scale_factors[level]).round() as i32;
             draw_cross_mut(&mut colored_img, color, x, y);
         }
     }

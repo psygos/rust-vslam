@@ -4,7 +4,10 @@ use image::{GenericImageView, GrayImage};
 use imageproc::corners::{corners_fast9, Corner};
 use imageproc::drawing::draw_cross_mut;
 
+// None of these parameters are tuned by me, taken from ORB-SLAM2 directory
 const EDGE_THRESHOLD: i32 = 19;
+const PATCH_SIZE: i32 = 31;
+const HALF_PATCH_SIZE: i32 = 15;
 
 #[derive(Debug, Clone)]
 pub struct KeyPoint {
@@ -73,6 +76,120 @@ impl ExtractorNode {
     }
 }
 
+// this just closely follows the ORB-SLAM2 orientation computation
+fn compute_orientation(image: &GrayImage, keypoint: &mut KeyPoint) -> f32 {
+    let x = keypoint.pt.0.round() as i32;
+    let y = keypoint.pt.1.round() as i32;
+    let (width, height) = image.dimensions();
+
+    let mut m_01 = 0i32;
+    let mut m_10 = 0i32;
+
+    for u in -HALF_PATCH_SIZE..=HALF_PATCH_SIZE {
+        let x_coord = (x + u).clamp(0, width as i32 - 1) as u32;
+        m_10 += u * image.get_pixel(x_coord, y as u32).0[0] as i32;
+    }
+
+    for v in 1..=HALF_PATCH_SIZE {
+        // Compute max u for this v value using a circular patch
+        let u_max = ((HALF_PATCH_SIZE * HALF_PATCH_SIZE - v * v) as f32).sqrt() as i32;
+
+        for u in -u_max..=u_max {
+            let x_coord = (x + u).clamp(0, width as i32 - 1) as u32;
+            let y_plus = (y + v).clamp(0, height as i32 - 1) as u32;
+            let y_minus = (y - v).clamp(0, height as i32 - 1) as u32;
+
+            let val_plus = image.get_pixel(x_coord, y_plus).0[0] as i32;
+            let val_minus = image.get_pixel(x_coord, y_minus).0[0] as i32;
+
+            m_10 += u * (val_plus + val_minus);
+            m_01 += v * (val_plus - val_minus);
+        }
+    }
+
+    (m_01 as f32).atan2(m_10 as f32) * 180.0 / std::f32::consts::PI
+}
+
+//pub fn compute_keypoints_oct_tree(
+//    pyramid: &ImagePyramid,
+//    ini_th_fast: u8,
+//    min_th_fast: u8,
+//    max_keypoints: usize,
+//) -> Vec<Vec<KeyPoint>> {
+//    let mut all_keypoints = Vec::new();
+//    let w: i32 = 30; // Cell size
+//
+//    for (level, image) in pyramid.levels.iter().enumerate() {
+//        let (width, height) = image.dimensions();
+//
+//        let min_border_x = EDGE_THRESHOLD - 3;
+//        let max_border_x = width as i32 - EDGE_THRESHOLD + 3;
+//        let min_border_y = min_border_x;
+//        let max_border_y = height as i32 - EDGE_THRESHOLD + 3;
+//
+//        let width_range = max_border_x - min_border_x;
+//        let height_range = max_border_y - min_border_y;
+//
+//        let n_cols = width_range / w;
+//        let n_rows = height_range / w;
+//
+//        let w_cell = ((width_range as f32 / n_cols as f32).ceil()) as i32;
+//        let h_cell = ((height_range as f32 / n_rows as f32).ceil()) as i32;
+//
+//        let mut initial_keypoints = Vec::new();
+//
+//        for i in 0..n_rows {
+//            let ini_y = min_border_y + i * h_cell;
+//            let max_y = ini_y + h_cell + 6;
+//
+//            if ini_y >= max_border_y - 3 {
+//                continue;
+//            }
+//
+//            for j in 0..n_cols {
+//                let ini_x = min_border_x + j * w_cell;
+//                let max_x = ini_x + w_cell + 6;
+//
+//                if ini_x >= max_border_x - 6 {
+//                    continue;
+//                }
+//
+//                let mut cell_keypoints = detect_keypoints_in_cell(
+//                    image,
+//                    ini_x.max(0) as u32,
+//                    ini_y.max(0) as u32,
+//                    max_x.min(width as i32) as u32,
+//                    max_y.min(height as i32) as u32,
+//                    ini_th_fast,
+//                    min_th_fast,
+//                );
+//
+//                // Adjust coordinates back to full image space
+//                for kp in &mut cell_keypoints {
+//                    kp.pt.0 += ini_x as f32;
+//                    kp.pt.1 += ini_y as f32;
+//                    kp.octave = level as i32;
+//                }
+//
+//                initial_keypoints.extend(cell_keypoints);
+//            }
+//        }
+//
+//        // Redistribute keypoints using quadtree
+//        let distributed_keypoints = distribute_oct_tree(
+//            initial_keypoints,
+//            min_border_x,
+//            max_border_x,
+//            min_border_y,
+//            max_border_y,
+//            max_keypoints,
+//        );
+//
+//        all_keypoints.push(distributed_keypoints);
+//    }
+//
+//    all_keypoints
+//}
 pub fn compute_keypoints_oct_tree(
     pyramid: &ImagePyramid,
     ini_th_fast: u8,
@@ -139,7 +256,7 @@ pub fn compute_keypoints_oct_tree(
         }
 
         // Redistribute keypoints using quadtree
-        let distributed_keypoints = distribute_oct_tree(
+        let mut distributed_keypoints = distribute_oct_tree(
             initial_keypoints,
             min_border_x,
             max_border_x,
@@ -147,6 +264,15 @@ pub fn compute_keypoints_oct_tree(
             max_border_y,
             max_keypoints,
         );
+
+        // Add scale information and compute orientation
+        let scale_factor = pyramid.scale_factors[level];
+        let scaled_patch_size = (PATCH_SIZE as f32 * scale_factor) as f32;
+
+        for kp in &mut distributed_keypoints {
+            kp.size = scaled_patch_size;
+            kp.angle = compute_orientation(image, kp);
+        }
 
         all_keypoints.push(distributed_keypoints);
     }
@@ -323,7 +449,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    colored_img.save("./output/new_keypoints_visualization.png")?;
+    colored_img.save("./output/patched_keypoints_visualization.png")?;
     println!("Keypoint visualization saved as 'keypoints_visualization.png'");
 
     Ok(())

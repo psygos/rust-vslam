@@ -6,4 +6,25 @@ edition = "2021"
 [dependencies]
 image = "0.25.2"
 imageproc = "0.25.0"
-nalgebra = "0.33.0"
+nalgebra = "=0.30.1"
+rayon = "1.5"
+opencl3 = "0.5"
+rand = "0.8.5"
+ocl = "0.19"
+kiss3d = "0.35"
+plotters = "0.3"
+thiserror = "1.0"
+rand_distr = "0.4"
+approx = "0.5"  
+parking_lot = "0.12" 
+hnswlib-rs = "0.2.0"   # Add this line for HNSWLib bindings
+serde = { version = "1.0", features = ["derive"] } # Required by hnswlib
+
+
+[lib]
+name = "rust_vslam"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rust_vslam"
+path = "src/main.rs"

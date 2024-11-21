@@ -1,4 +1,3 @@
-use image::imageops;
 use image::{GrayImage, ImageBuffer, Luma};
 use imageproc::filter::gaussian_blur_f32;
 use std::fs;
@@ -58,22 +57,6 @@ impl ImagePyramid {
         })
     }
 
-    pub fn get_level(&self, level: usize) -> Option<&GrayImage> {
-        self.levels.get(level)
-    }
-
-    pub fn get_scale_factor(&self, level: usize) -> Option<f32> {
-        self.scale_factors.get(level).cloned()
-    }
-
-    pub fn get_sigma_factor(&self, level: usize) -> Option<f32> {
-        self.sigma_factors.get(level).cloned()
-    }
-
-    pub fn num_levels(&self) -> usize {
-        self.levels.len()
-    }
-
     pub fn save_levels(&self, output_dir: &str) -> Result<(), image::ImageError> {
         fs::create_dir_all(output_dir)?;
         for (i, level) in self.levels.iter().enumerate() {
@@ -103,10 +86,10 @@ fn add_padding(image: &GrayImage, edge_threshold: u32) -> GrayImage {
     })
 }
 
-pub fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let base_image = image::open("./test/image_1.jpeg")?.to_luma8();
-    let pyramid = ImagePyramid::new(&base_image, 8, 1.2);
-    pyramid.save_levels("./output/")?;
-    println!("Pyramid levels (both padded and unpadded) saved successfully!");
-    Ok(())
-}
+//pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+//    let base_image = image::open("./test/image_1.jpeg")?.to_luma8();
+//    let pyramid = ImagePyramid::new(&base_image, 8, 1.2);
+//    pyramid.save_levels("./output/")?;
+//    println!("Pyramid levels (both padded and unpadded) saved successfully!");
+//    Ok(())
+//}

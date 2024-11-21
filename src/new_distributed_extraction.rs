@@ -1,4 +1,4 @@
-use crate::pyramid::*;
+use crate::pyramid_new::*;
 use image::Rgb;
 use image::{GenericImageView, GrayImage};
 use imageproc::corners::corners_fast9;
@@ -741,7 +741,7 @@ pub fn compute_descriptor_quad_tree(
         }
 
         // Redistribute keypoints using quadtree
-        let mut distributed_keypoints = distribute_oct_tree(
+        let distributed_keypoints = distribute_oct_tree(
             initial_keypoints,
             min_border_x,
             max_border_x,
@@ -974,7 +974,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("------|------------|-------------");
     println!("Total keypoints: {}", total_keypoints);
 
-    colored_img.save("./output/orb_features.png")?;
+    colored_img.save("./output/200_orb_features.png")?;
     println!("\nVisualization saved as '200_orb_features.png'");
 
     if false {

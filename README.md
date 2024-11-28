@@ -6,8 +6,8 @@ A fast, memory-safe Visual Odometry implementation in Rust with GPU-accelerated 
 [This is still an ongoing project, with current immediate goals mentioned below]
 
 
-![Feature Matching](docs/images/feature_matching.png)
-![Trajectory](output/trajectory.png)
+![Feature Matching](output/matches_1180.png)
+![Trajectory](output/trajectory_plot.png)
 
 ## Features
 

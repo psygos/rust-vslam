@@ -1,9 +1,13 @@
 # Rust Visual SLAM v0.1.0 🚀
 
 A fast, memory-safe Visual Odometry implementation in Rust with GPU-accelerated image processing and no OpenCV.
+
+
 [This is still an ongoing project, with current immediate goals mentioned below]
+
+
 ![Feature Matching](docs/images/feature_matching.png)
-![Trajectory](docs/images/trajectory.png)
+![Trajectory](output/trajectory.png)
 
 ## Features
 

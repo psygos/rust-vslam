@@ -1,4 +1,4 @@
-# Rust Monoculer ORB-Visual SLAM 🚀
+# Rust Monoculer ORB-Visual SLAM 
 
 A fast, memory-safe Visual Odometry implementation in Rust with GPU-accelerated image processing and no OpenCV.
 
